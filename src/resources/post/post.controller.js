@@ -1,8 +1,23 @@
-var path = require('path');
-var fs = require('fs');
 var fileUpload = require('../../utils/file.upload');
 var { validationResult } = require('express-validator');
 var Post = require('./post.model');
+
+exports.getManyPost = async function getManyPost(req, res, next) {
+  try {
+    var posts = await Post.find({});
+    if (!posts) {
+      var error = new Error('Could not fetch posts!');
+      error.statusCode = 422;
+      throw error;
+    }
+    res.status(200).json({ data: posts });
+  } catch (error) {
+    if (!error.statusCode) {
+      error.statusCode = 500;
+    }
+    next(error);
+  }
+};
 
 exports.getOnePost = async function getOnePost(req, res, next) {
   try {
@@ -22,27 +37,10 @@ exports.getOnePost = async function getOnePost(req, res, next) {
   }
 };
 
-exports.getManyPost = async function getManyPost(req, res, next) {
-  try {
-    var posts = await Post.find({});
-    if (!posts) {
-      var error = new Error('Could not fetch posts!');
-      error.statusCode = 422;
-      throw error;
-    }
-    res.status(200).json({ data: posts });
-  } catch (error) {
-    if (!error.statusCode) {
-      error.statusCode = 500;
-    }
-    next(error);
-  }
-};
-
 exports.createOnePost = async function createOnePost(req, res, next) {
   try {
     const errors = validationResult(req);
-    if (!errors.isEmpty) {
+    if (!errors.isEmpty()) {
       const error = new Error('Validation failed, entered data is incorrect!');
       error.statusCode = 422;
       throw error;
@@ -82,7 +80,7 @@ exports.updateOnePost = async function updateOnePost(req, res, next) {
     const content = req.body.content;
     let photo = req.body.image;
     const errors = validationResult(req);
-    if (!errors.isEmpty) {
+    if (!errors.isEmpty()) {
       const error = new Error('Validation failed, entered data is incorrect!');
       error.statusCode = 422;
       throw error;
