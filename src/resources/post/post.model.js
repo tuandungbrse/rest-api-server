@@ -16,8 +16,9 @@ var Post = new Schema(
       required: true
     },
     createdBy: {
-      type: Object,
-      required: true
+      type: Schema.Types.ObjectId,
+      required: true,
+      ref: 'user'
     }
   },
   {

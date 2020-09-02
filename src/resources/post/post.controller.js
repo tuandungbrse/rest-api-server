@@ -1,6 +1,8 @@
 var fileUpload = require('../../utils/file.upload');
 var { validationResult } = require('express-validator');
+
 var Post = require('./post.model');
+var User = require('../user/user.model');
 
 exports.getManyPost = async function getManyPost(req, res, next) {
   try {
@@ -50,20 +52,26 @@ exports.createOnePost = async function createOnePost(req, res, next) {
       error.statusCode = 422;
       throw error;
     }
+
     const title = req.body.title;
     const content = req.body.content;
-    const photo = req.file.filename;
+    const photo = req.file.filename; // still can not save photo in right format
+    const createdBy = req.user.id;
 
     const post = await Post.create({
       title,
       photo,
       content,
-      createdBy: { name: ' Tuan Dung' }
+      createdBy
     });
 
+    const user = await User.findById(createdBy);
+    user.posts.push(post);
+    await user.save();
     res.status(201).json({
       message: 'Post created successfully!',
-      post
+      post,
+      createdBy: { id: user.id, name: user.name }
     });
   } catch (error) {
     if (!error.statusCode) {
@@ -94,14 +102,23 @@ exports.updateOnePost = async function updateOnePost(req, res, next) {
       throw error;
     }
     var post = await Post.findById(id);
+
     if (post.photo !== photo) {
       fileUpload.deletePhoto(post.photo);
     }
+
     if (!post) {
       var error = new Error('Could not find post!');
       error.statusCode = 422;
       throw error;
     }
+
+    if (post.createdBy.toString() !== req.user.id) {
+      var error = new Error('Not authorized!');
+      error.statusCode = 403;
+      throw error;
+    }
+
     post.title = title;
     post.photo = photo;
     post.content = content;
@@ -119,13 +136,24 @@ exports.deleteOnePost = async function deleteOnePost(req, res, next) {
   try {
     const id = req.params.id;
     var post = await Post.findById(id);
+
     if (!post) {
       var error = new Error('Could not find post!');
       error.statusCode = 422;
       throw error;
     }
+
+    if (post.createdBy.toString() !== req.user.id) {
+      var error = new Error('Not authorized!');
+      error.statusCode = 403;
+      throw error;
+    }
+
     fileUpload.deletePhoto(post.photo);
     var result = await Post.findByIdAndDelete(id);
+    const user = await User.findById(req.user.id);
+    user.posts.pull(id);
+    await user.save();
     res.status(200).json({ data: result });
   } catch (error) {
     if (!error.statusCode) {
