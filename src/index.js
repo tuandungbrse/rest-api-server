@@ -10,7 +10,7 @@ const init = async () => {
       useNewUrlParser: true
     });
     var server = http.createServer(app);
-    var io = require('socket.io')(server);
+    var io = require('./socket')(server);
     io.on('connection', (socket) => {
       console.log('A client just connected', socket);
     });

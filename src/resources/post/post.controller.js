@@ -1,6 +1,6 @@
 var fileUpload = require('../../utils/file.upload');
 var { validationResult } = require('express-validator');
-
+var io = require('../../socket');
 var Post = require('./post.model');
 var User = require('../user/user.model');
 
@@ -68,6 +68,7 @@ exports.createOnePost = async function createOnePost(req, res, next) {
     const user = await User.findById(createdBy);
     user.posts.push(post);
     await user.save();
+    io.getIO().emit('post', { ACTION: 'create', post: post });
     res.status(201).json({
       message: 'Post created successfully!',
       post,
@@ -123,6 +124,8 @@ exports.updateOnePost = async function updateOnePost(req, res, next) {
     post.photo = photo;
     post.content = content;
     var result = await post.save();
+    // inform all connected clients.
+    io.getIO().emit('post', { ACTION: 'update', post: result });
     res.status(200).json({ data: result });
   } catch (error) {
     if (!error.statusCode) {
@@ -154,6 +157,7 @@ exports.deleteOnePost = async function deleteOnePost(req, res, next) {
     const user = await User.findById(req.user.id);
     user.posts.pull(id);
     await user.save();
+    io.getIO().emit('post', { ACTION: 'delete', post: result });
     res.status(200).json({ data: result });
   } catch (error) {
     if (!error.statusCode) {
