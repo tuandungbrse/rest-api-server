@@ -58,6 +58,7 @@ exports.signin = async function signin(req, res, next) {
 
 exports.protect = async function protect(req, res, next) {
   try {
+    console.log(bearer);
     const bearer = req.headers.authorization;
     if (!bearer || !bearer.startsWith('Bearer ')) {
       var error = new Error('Not authenticated!');
@@ -74,6 +75,35 @@ exports.protect = async function protect(req, res, next) {
     const user = await User.findById(payload.id);
     if (!user) return res.status(401).end();
     req.user = user;
+    return next();
+  } catch (error) {
+    if (!error.statusCode) {
+      error.statusCode = 500;
+    }
+    next(error);
+  }
+};
+
+exports.protectGraphQL = async function protect(req, res, next) {
+  try {
+    const bearer = req.headers.authorization;
+    if (!bearer || !bearer.startsWith('Bearer ')) {
+      req.isAuth = false;
+      return next();
+    }
+    const token = bearer.split('Bearer ')[1].trim();
+    const payload = await jwt.verifyToken(token);
+    if (!payload) {
+      req.isAuth = false;
+      return next();
+    }
+    const user = await User.findById(payload.id);
+    if (!user) {
+      req.isAuth = false;
+      return next();
+    }
+    req.user = user;
+    req.isAuth = true;
     next();
   } catch (error) {
     if (!error.statusCode) {

@@ -11,7 +11,7 @@ var { v4: uuidv4 } = require('uuid');
 var { graphqlHTTP } = require('express-graphql');
 var schema = require('./graphql/schema');
 var resolvers = require('./graphql/resolvers');
-
+var auth = require('./middlewares/auth/auth.controller');
 var app = express();
 
 var fileStorage = multer.diskStorage({
@@ -35,21 +35,21 @@ var filter = (req, file, cb) => {
   }
 };
 
-var postRoute = require('./resources/post/post.route');
-var authRoute = require('./middlewares/auth/auth.route');
+// var postRoute = require('./resources/post/post.route');
+// var authRoute = require('./middlewares/auth/auth.route');
 // middlewares
 app.use(cors());
 app.use('/images', express.static(path.join(__dirname, '..', 'images')));
 app.use(bodyParser.json());
 app.use(multer({ storage: fileStorage, fileFilter: filter }).single('image'));
-
+app.use(auth.protectGraphQL);
 app.use(
   '/graphql',
   graphqlHTTP({
     schema: schema,
     rootValue: resolvers,
     graphiql: true,
-    formatError(error) {
+    customFormatErrorFn(error) {
       if (!error.originalError) {
         return error;
       }
@@ -61,8 +61,8 @@ app.use(
   })
 );
 //
-app.use('/api/auth', authRoute);
-app.use('/api/posts', postRoute);
+// app.use('/api/auth', authRoute);
+// app.use('/api/posts', postRoute);
 
 // handle / route
 app.get('/', async (req, res) => {
