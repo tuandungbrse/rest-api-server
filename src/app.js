@@ -7,7 +7,7 @@ var bodyParser = require('body-parser');
 var multer = require('multer');
 var cors = require('cors');
 var { v4: uuidv4 } = require('uuid');
-
+var fileUpload = require('../src/utils/file.upload');
 var { graphqlHTTP } = require('express-graphql');
 var schema = require('./graphql/schema');
 var resolvers = require('./graphql/resolvers');
@@ -37,12 +37,24 @@ var filter = (req, file, cb) => {
 
 // var postRoute = require('./resources/post/post.route');
 // var authRoute = require('./middlewares/auth/auth.route');
+
 // middlewares
 app.use(cors());
 app.use('/images', express.static(path.join(__dirname, '..', 'images')));
 app.use(bodyParser.json());
 app.use(multer({ storage: fileStorage, fileFilter: filter }).single('image'));
 app.use(auth.protectGraphQL);
+app.put('/post-image', (req, res, next) => {
+  if (!req.file) {
+    return res.status(200).json({ message: 'No image provided!' });
+  }
+  if (req.body.oldPath) {
+    fileUpload.deletePhoto(req.body.oldPath);
+  }
+  return res
+    .status(201)
+    .json({ message: 'File stored!', path: req.file.filename });
+});
 app.use(
   '/graphql',
   graphqlHTTP({
@@ -60,11 +72,12 @@ app.use(
     }
   })
 );
-//
+
+// setting up routes
 // app.use('/api/auth', authRoute);
 // app.use('/api/posts', postRoute);
 
-// handle / route
+// handle index / route
 app.get('/', async (req, res) => {
   res.json({ title: 'Express' });
 });

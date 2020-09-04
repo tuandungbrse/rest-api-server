@@ -3,8 +3,7 @@ var Post = require('../resources/post/post.model');
 var bcrypt = require('bcryptjs');
 var validator = require('validator');
 var jwt = require('../utils/jwt');
-const { post } = require('../app');
-
+var fileUpload = require('../utils/file.upload');
 module.exports = {
   createUser: async function ({ userInput }, req) {
     // const email = args.userInput.email;
@@ -112,7 +111,7 @@ module.exports = {
     const totalPosts = await Post.find({}).countDocuments();
     const posts = await Post.find()
       .sort({ createdAt: -1 })
-      .skip((page - 1) * PAGE_SIZE)
+      .skip((CURRENT_PAGE - 1) * PAGE_SIZE)
       .limit(PAGE_SIZE)
       .populate('createdBy');
     return {
@@ -126,5 +125,100 @@ module.exports = {
       }),
       totalPosts: totalPosts
     };
+  },
+
+  post: async function ({ id }, req) {
+    if (!req.isAuth) {
+      var error = new Error('Not authenticated!');
+      error.code = 401;
+      throw error;
+    }
+    const post = await Post.findById(id).populate('createdBy');
+    if (!post) {
+      var error = new Error('No post found!');
+      error.code = 404;
+      throw error;
+    }
+    return {
+      ...post,
+      _id: post._id.toString(),
+      createdAt: post.createdAt.toISOString(),
+      updatedAt: post.updatedAt.toISOString()
+    };
+  },
+
+  updatePost: async function ({ id, postInput }, req) {
+    if (!req.isAuth) {
+      var error = new Error('Not authenticated!');
+      error.code = 401;
+      throw error;
+    }
+    var post = await Post.findById(id).populate('createdBy');
+    if (!post) {
+      var error = new Error('Post not found!');
+      error.code = 404;
+      throw error;
+    }
+    if (post.createdBy._id.toString() === req.user.id.toString()) {
+      var error = new Error('Not authorized!');
+      error.code = 403;
+      throw error;
+    }
+    var errors = [];
+    if (
+      validator.isEmpty(postInput.title) ||
+      !validator.isLength(postInput.title, { min: 5 })
+    ) {
+      errors.push({ message: 'Title is invalid!' });
+    }
+    if (
+      validator.isEmpty(postInput.content) ||
+      !validator.isLength(postInput.content, { min: 5 })
+    ) {
+      errors.push({ message: 'Content is invalid!' });
+    }
+    if (errors.length > 0) {
+      var invalidInput = new Error('Invalid input!');
+      invalidInput.data = errors;
+      invalidInput.code = 422;
+      throw invalidInput;
+    }
+    post.title = postInput.title;
+    post.content = postInput.content;
+    if (postInput.photo !== 'underfined') {
+      post.photo = postInput.photo;
+    }
+    const updatedPost = await post.save();
+    return {
+      ...updatedPost._doc,
+      _id: post._id.toString(),
+      createdAt: post.createdAt.toISOString(),
+      updatedAt: post.updatedAt.toISOString()
+    };
+  },
+
+  deletePost: async function ({ id }, req) {
+    if (!req.isAuth) {
+      var error = new Error('Not authenticated!');
+      error.code = 401;
+      throw error;
+    }
+    var post = await Post.findById(id);
+    if (!post) {
+      var error = new Error('Post not found!');
+      error.code = 404;
+      throw error;
+    }
+    if (post.createdBy._id.toString() === req.user.id.toString()) {
+      var error = new Error('Not authorized!');
+      error.code = 403;
+      throw error;
+    }
+    fileUpload.deletePhoto(post.photo);
+    await Post.findByIdAndDelete(id);
+    var user = await User.findById(req.user.id);
+    user.posts.pull(id);
+    await user.save();
+    return true;
   }
 };
