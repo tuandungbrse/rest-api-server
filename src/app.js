@@ -8,6 +8,10 @@ var multer = require('multer');
 var cors = require('cors');
 var { v4: uuidv4 } = require('uuid');
 
+var { graphqlHTTP } = require('express-graphql');
+var schema = require('./graphql/schema');
+var resolvers = require('./graphql/resolvers');
+
 var app = express();
 
 var fileStorage = multer.diskStorage({
@@ -39,6 +43,23 @@ app.use('/images', express.static(path.join(__dirname, '..', 'images')));
 app.use(bodyParser.json());
 app.use(multer({ storage: fileStorage, fileFilter: filter }).single('image'));
 
+app.use(
+  '/graphql',
+  graphqlHTTP({
+    schema: schema,
+    rootValue: resolvers,
+    graphiql: true,
+    formatError(error) {
+      if (!error.originalError) {
+        return error;
+      }
+      const data = error.originalError.data;
+      const message = error.message || 'An error occurred.';
+      const code = error.originalError.code || 500;
+      return { data, message, code };
+    }
+  })
+);
 //
 app.use('/api/auth', authRoute);
 app.use('/api/posts', postRoute);
